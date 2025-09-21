@@ -1,1 +1,369 @@
-Hello World
+#Kaushaki 
+import tkinter as tk
+from tkinter import messagebox, ttk
+from PIL import Image, ImageTk
+import sqlite3
+import datetime
+
+# Database setup
+def init_db():
+    conn = sqlite3.connect('college_travel.db')
+    c = conn.cursor()
+    # Users table
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            email TEXT PRIMARY KEY,
+            name TEXT,
+            year TEXT,
+            course TEXT,
+            password TEXT
+        )
+    ''')
+    # Travel slots table
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS travel_slots (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT,
+            time TEXT,
+            transport_type TEXT,
+            details TEXT,
+            end_point TEXT,
+            major_stops TEXT,
+            created_by TEXT
+        )
+    ''')
+    # Slot participants table
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS slot_participants (
+            slot_id INTEGER,
+            user_email TEXT,
+            name TEXT,
+            year TEXT,
+            course TEXT,
+            drop_point TEXT,
+            FOREIGN KEY (slot_id) REFERENCES travel_slots(id),
+            FOREIGN KEY (user_email) REFERENCES users(email)
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+init_db()
+
+class SlotDetailPage(tk.Frame):
+    def __init__(self, parent, controller):
+        super().__init__(parent)
+        self.controller = controller
+        self.bg_img = None
+        self.details_label = None
+        self.tree = None
+        
+        self.bg_img = Image.open("C:/Users/kaush/Downloads/In Plane Aesthetic.png")
+        self.bg_img = self.bg_img.resize((900, 650), Image.LANCZOS)
+        self.bg_photo = ImageTk.PhotoImage(self.bg_img)
+        self.bg_label = tk.Label(self, image=self.bg_photo)
+        self.bg_label.place(x=0, y=0, relwidth=1, relheight=1)
+
+        #if self.bg_img:
+        #   bg_label = tk.Label(self, image=self.bg_img)
+        #    bg_label.place(x=0, y=0, relwidth=1, relheight=1)
+         #   bg_label.lower()
+
+    def setup_ui(self):
+        self.set_background()
+        tk.Label(self, text="Slot Details", font=("Arial", 16, "bold"), bg="#fffbea").pack(pady=20)
+        if not self.details_label:
+            self.details_label = tk.Label(self, text="", bg="#fffbea")
+            self.details_label.pack()
+        if not self.tree:
+            self.tree = ttk.Treeview(self, columns=('Name', 'Year', 'Course', 'Drop Point'), show='headings')
+            for col in self.tree['columns']:
+                self.tree.heading(col, text=col)
+            self.tree.pack(expand=True, fill='both')
+        btn_frame = tk.Frame(self, bg="#fffbea")
+        btn_frame.pack(pady=15)
+        tk.Button(btn_frame, text="Connect Yourself to Slot", font=("Arial", 13), bg="#1976D2", fg="white",
+                  command=self.open_connect_tab).pack(side='left', padx=10)
+        tk.Button(btn_frame, text="Back", command=lambda: self.controller.show_frame("SlotsPage"), font=("Arial", 12)).pack(side='left', padx=10)
+
+    def tkraise(self, *args, **kwargs):
+        super().tkraise(*args, **kwargs)
+        self.setup_ui()
+        self.populate_details()
+
+    def populate_details(self):
+        slot_id = self.controller.selected_slot_id
+        conn = sqlite3.connect('college_travel.db')
+        c = conn.cursor()
+        c.execute("SELECT * FROM travel_slots WHERE id=?", (slot_id,))
+        slot = c.fetchone()
+        if slot:
+            details_text = f"Date: {slot[1]}, Time: {slot[2]}, Transport: {slot[3]}, Endpoint: {slot[5]}"
+            self.details_label.config(text=details_text)
+        for i in self.tree.get_children():
+            self.tree.delete(i)
+        c.execute("SELECT name, year, course, drop_point FROM slot_participants WHERE slot_id=?", (slot_id,))
+        participants = c.fetchall()
+        for name, year, course, drop_point in participants:
+            self.tree.insert('', 'end', values=(name, year, course, drop_point))
+        conn.close()
+
+    def open_connect_tab(self):
+        slot_id = self.controller.selected_slot_id
+        user_email = self.controller.user[0]
+        conn = sqlite3.connect('college_travel.db')
+        c = conn.cursor()
+        c.execute("SELECT name, year, course FROM users WHERE email=?", (user_email,))
+        user = c.fetchone()
+        conn.close()
+        connect_win = tk.Toplevel(self)
+        connect_win.title("Connect to Slot")
+        connect_win.geometry("400x350")
+        connect_win.configure(bg="#f5f5f5")
+
+        tk.Label(connect_win, text="Enter your Details", font=("Arial", 16, "bold"), bg="#f5f5f5").pack(pady=10)
+
+        # Name entry
+        tk.Label(connect_win, text="Name:", font=("Arial", 12), bg="#f5f5f5").pack(anchor="w", padx=20)
+        name_var = tk.StringVar(value=user[0] if user else "")
+        name_entry = tk.Entry(connect_win, textvariable=name_var, font=("Arial", 12))
+        name_entry.pack(padx=20, pady=5, fill="x")
+
+        # Drop point entry
+        tk.Label(connect_win, text="Drop Point:", font=("Arial", 12), bg="#f5f5f5").pack(anchor="w", padx=20)
+        drop_var = tk.StringVar()
+        drop_entry = tk.Entry(connect_win, textvariable=drop_var, font=("Arial", 12))
+        drop_entry.pack(padx=20, pady=5, fill="x")
+
+        # Show course/year (read-only)
+        tk.Label(connect_win, text=f"Course: {user[2] if user else ''}", font=("Arial", 12), bg="#f5f5f5").pack(anchor="w", padx=20, pady=(10,0))
+        tk.Label(connect_win, text=f"Year: {user[1] if user else ''}", font=("Arial", 12), bg="#f5f5f5").pack(anchor="w", padx=20)
+
+        def submit_details():
+            name = name_var.get().strip()
+            drop = drop_var.get().strip()
+            if not name or not drop:
+                messagebox.showerror("Error", "Please fill out all details.", parent=connect_win)
+                return
+            # Save info to database
+            conn = sqlite3.connect('college_travel.db')
+            c = conn.cursor()
+            c.execute("SELECT * FROM slot_participants WHERE slot_id=? AND user_email=?", (slot_id, user_email))
+            if c.fetchone():
+                messagebox.showinfo("Info", "You are already part of this slot.", parent=connect_win)
+            else:
+                c.execute("INSERT INTO slot_participants (slot_id, user_email, name, year, course, drop_point) VALUES (?, ?, ?, ?, ?, ?)",
+                          (slot_id, user_email, name, user[1], user[2], drop))
+                conn.commit()
+                messagebox.showinfo("Success", "Added to slot!", parent=connect_win)
+            conn.close()
+            connect_win.destroy()
+            self.populate_details()
+
+        submit_btn = tk.Button(connect_win, text="Join Slot", font=("Arial", 14),
+                               bg="#43A047", fg="white", command=submit_details)
+        submit_btn.pack(pady=20)
+
+class TravelApp(tk.Tk):
+    def __init__(self):
+        super().__init__()
+        self.title("College Travel Connect")
+        self.geometry("600x500")
+        self.user = None
+        self.selected_date = None
+        self.selected_slot_id = None
+        self.frames = {}
+        for F in (StartPage, RegisterPage, LoginPage, CalendarPage, SlotsPage, SlotDetailPage, AddSlotPage):
+            page_name = F.__name__
+            if F is SlotDetailPage:
+                frame = F(parent=self, controller=self)
+            else:
+                frame = F(parent=self, controller=self)
+            self.frames[page_name] = frame
+            frame.grid(row=0, column=0, sticky="nsew")
+        self.show_frame("StartPage")
+
+    def show_frame(self, page_name):
+        frame = self.frames[page_name]
+        frame.tkraise()
+
+# 1. Start Page
+class StartPage(tk.Frame):
+    def __init__(self, parent, controller):
+        super().__init__(parent)
+        tk.Label(self, text="Welcome to College Travel Connect", font=("Arial", 18)).pack(pady=40)
+        tk.Button(self, text="Register", command=lambda: controller.show_frame("RegisterPage")).pack(pady=10)
+        tk.Button(self, text="Sign In", command=lambda: controller.show_frame("LoginPage")).pack(pady=10)
+
+# 2. Registration Page
+class RegisterPage(tk.Frame):
+    def __init__(self, parent, controller):
+        super().__init__(parent)
+        self.controller = controller
+        tk.Label(self, text="Register", font=("Arial", 16)).pack(pady=20)
+        self.email = tk.Entry(self)
+        self.name = tk.Entry(self)
+        self.year = tk.Entry(self)
+        self.course = tk.Entry(self)
+        self.password = tk.Entry(self, show="*")
+        for label, widget in [("Email", self.email), ("Name", self.name), ("Year", self.year), ("Course", self.course), ("Password", self.password)]:
+            tk.Label(self, text=label).pack()
+            widget.pack()
+        tk.Button(self, text="Submit", command=self.register_user).pack(pady=10)
+        tk.Button(self, text="Back", command=lambda: controller.show_frame("StartPage")).pack()
+
+    def register_user(self):
+        email = self.email.get()
+        name = self.name.get()
+        year = self.year.get()
+        course = self.course.get()
+        password = self.password.get()
+        if not (email and name and year and course and password):
+            messagebox.showerror("Error", "All fields required.")
+            return
+        conn = sqlite3.connect('college_travel.db')
+        c = conn.cursor()
+        try:
+            c.execute("INSERT INTO users VALUES (?, ?, ?, ?, ?)", (email, name, year, course, password))
+            conn.commit()
+            messagebox.showinfo("Success", "Registered successfully.")
+            self.controller.show_frame("StartPage")
+        except sqlite3.IntegrityError:
+            messagebox.showerror("Error", "Email already registered.")
+        conn.close()
+
+# 3. Login Page
+class LoginPage(tk.Frame):
+    def __init__(self, parent, controller):
+        super().__init__(parent)
+        self.controller = controller
+        tk.Label(self, text="Sign In", font=("Arial", 16)).pack(pady=20)
+        self.email = tk.Entry(self)
+        self.password = tk.Entry(self, show="*")
+        tk.Label(self, text="Email").pack()
+        self.email.pack()
+        tk.Label(self, text="Password").pack()
+        self.password.pack()
+        tk.Button(self, text="Login", command=self.login_user).pack(pady=10)
+        tk.Button(self, text="Back", command=lambda: controller.show_frame("StartPage")).pack()
+
+    def login_user(self):
+        email = self.email.get()
+        password = self.password.get()
+        conn = sqlite3.connect('college_travel.db')
+        c = conn.cursor()
+        c.execute("SELECT * FROM users WHERE email=? AND password=?", (email, password))
+        user = c.fetchone()
+        conn.close()
+        if user:
+            self.controller.user = user
+            self.controller.show_frame("CalendarPage")
+        else:
+            messagebox.showerror("Error", "Invalid credentials.")
+
+# 4. Academic Calendar Page
+class CalendarPage(tk.Frame):
+    def __init__(self, parent, controller):
+        super().__init__(parent)
+        tk.Label(self, text="Academic Calendar", font=("Arial", 16)).pack(pady=20)
+        tk.Label(self, text="Choose your travel start date:").pack()
+        self.date_entry = tk.Entry(self)
+        self.date_entry.pack()
+        tk.Label(self, text="Format: YYYY-MM-DD").pack()
+        tk.Button(self, text="Next", command=self.select_date).pack(pady=10)
+        tk.Button(self, text="Logout", command=self.logout).pack()
+
+    def select_date(self):
+        date = self.date_entry.get()
+        try:
+            datetime.datetime.strptime(date, "%Y-%m-%d")
+        except ValueError:
+            messagebox.showerror("Error", "Invalid date format.")
+            return
+        self.master.selected_date = date
+        self.master.show_frame("SlotsPage")
+
+    def logout(self):
+        self.master.user = None
+        self.master.show_frame("StartPage")
+
+# 5. Travel Slots Page
+class SlotsPage(tk.Frame):
+    def __init__(self, parent, controller):
+        super().__init__(parent)
+        tk.Label(self, text="Travel Slots", font=("Arial", 16)).pack(pady=20)
+        self.tree = ttk.Treeview(self, columns=('Time', 'Transport', 'End Point', 'Stops', 'People'), show='headings')
+        for col in self.tree['columns']:
+            self.tree.heading(col, text=col)
+        self.tree.pack(expand=True, fill='both')
+        tk.Button(self, text="Add Slot", command=lambda: controller.show_frame("AddSlotPage")).pack(side='left', padx=20, pady=10)
+        tk.Button(self, text="View Slot", command=self.view_slot).pack(side='left', padx=20, pady=10)
+        tk.Button(self, text="Back", command=lambda: controller.show_frame("CalendarPage")).pack(side='left', padx=20, pady=10)
+
+    def tkraise(self, *args, **kwargs):
+        super().tkraise(*args, **kwargs)
+        self.populate_slots()
+
+    def populate_slots(self):
+        for i in self.tree.get_children():
+            self.tree.delete(i)
+        conn = sqlite3.connect('college_travel.db')
+        c = conn.cursor()
+        date = self.master.selected_date
+        c.execute("SELECT id, time, transport_type, end_point, major_stops FROM travel_slots WHERE date=?", (date,))
+        slots = c.fetchall()
+        for slot in slots:
+            slot_id = slot[0]
+            c.execute("SELECT COUNT(*) FROM slot_participants WHERE slot_id=?", (slot_id,))
+            count = c.fetchone()[0]
+            self.tree.insert('', 'end', iid=slot_id, values=(slot[1], slot[2], slot[3], slot[4], count))
+        conn.close()
+
+    def view_slot(self):
+        selected = self.tree.selection()
+        if not selected:
+            messagebox.showerror("Error", "Select a slot to view.")
+            return
+        self.master.selected_slot_id = selected[0]
+        self.master.show_frame("SlotDetailPage")
+
+# 7. Add Slot Page
+class AddSlotPage(tk.Frame):
+    def __init__(self, parent, controller):
+        super().__init__(parent)
+        tk.Label(self, text="Add Travel Slot", font=("Arial", 16)).pack(pady=20)
+        self.time = tk.Entry(self)
+        self.transport_type = tk.Entry(self)
+        self.details = tk.Entry(self)
+        self.end_point = tk.Entry(self)
+        self.major_stops = tk.Entry(self)
+        for label, widget in [("Time", self.time), ("Transport Type", self.transport_type),
+                              ("Details", self.details), ("End Point", self.end_point), ("Major Stops", self.major_stops)]:
+            tk.Label(self, text=label).pack()
+            widget.pack()
+        tk.Button(self, text="Submit", command=self.add_slot).pack(pady=10)
+        tk.Button(self, text="Back", command=lambda: controller.show_frame("SlotsPage")).pack()
+
+    def add_slot(self):
+        date = self.master.selected_date
+        time = self.time.get()
+        transport_type = self.transport_type.get()
+        details = self.details.get()
+        end_point = self.end_point.get()
+        major_stops = self.major_stops.get()
+        created_by = self.master.user[0]
+        if not (date and time and transport_type and details and end_point and major_stops):
+            messagebox.showerror("Error", "All fields required.")
+            return
+        conn = sqlite3.connect('college_travel.db')
+        c = conn.cursor()
+        c.execute("INSERT INTO travel_slots (date, time, transport_type, details, end_point, major_stops, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                  (date, time, transport_type, details, end_point, major_stops, created_by))
+        conn.commit()
+        conn.close()
+        messagebox.showinfo("Success", "Slot added!")
+        self.master.show_frame("SlotsPage")
+
+if __name__ == "__main__":
+    app = TravelApp()
+    app.mainloop()
