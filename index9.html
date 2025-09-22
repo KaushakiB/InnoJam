@@ -1,0 +1,715 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>RouteLink — Web App</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <style>
+    :root{
+      --accent:#0b5878;
+      --muted:#6c7a89;
+      --card:#ffffff;
+      --bg:#f3fbff;
+    }
+    body{background:var(--bg);font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;margin:0}
+    .brand{color:var(--accent);font-weight:800;font-size:28px}
+    .tagline{color:var(--muted);font-style:italic}
+    .topbar{padding:14px 18px;background:linear-gradient(90deg,#f6fbfd,#eef9fb);border-radius:12px;margin-bottom:18px;display:flex;align-items:center}
+    .logobox{width:64px;height:64px;border-radius:10px;background:linear-gradient(180deg,#fff,#f0fbff);display:flex;align-items:center;justify-content:center}
+    .section-card{background:var(--card);border-radius:12px;padding:18px;margin-bottom:16px;box-shadow:0 6px 18px rgba(13,40,50,0.04)}
+    .mini-cal{display:flex;flex-wrap:wrap;gap:6px}
+    .cal-day{width:44px;height:44px;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:1px solid #e6eef1;user-select:none}
+    .cal-day:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(11,88,120,0.06)}
+    .cal-today{background:var(--accent);color:#fff;font-weight:700}
+    .slot-pill{background:#ecfbf9;color:#0a6b5b;padding:4px 8px;border-radius:999px;font-weight:600}
+    .muted-small{color:var(--muted);font-size:0.95rem}
+    .hidden{display:none!important}
+    /* disable style for nav links */
+    .nav-link.disabled { opacity:0.5; pointer-events:none; }
+    /* optional stronger lock on nav group */
+    .nav-locked .nav-link { opacity:0.5; pointer-events:none; }
+    .offcanvas-end{width:420px;max-width:95%}
+    .modal-lg .modal-body table td { vertical-align: middle; }
+    @media (max-width:800px){ .topbar{flex-direction:column;gap:10px;align-items:flex-start} .offcanvas-end{width:100%} }
+  </style>
+</head>
+<body>
+  <div class="container py-4">
+    <div class="topbar">
+      <div class="d-flex align-items-center gap-3">
+        <div class="logobox">
+          <!-- Save your logo to: static/logo.png -->
+          <img src="/static/logo.png" width="48" alt="logo" onerror="this.src='https://img.icons8.com/fluency/48/bus.png'">
+        </div>
+        <div>
+          <div class="brand">RouteLink Web</div>
+          <div class="tagline">Every Link Counts, Every Route Matters</div>
+        </div>
+      </div>
+
+      <div class="ms-auto d-flex align-items-center gap-2" id="authArea">
+        <input id="top_email" class="form-control form-control-sm" placeholder="email@vitstudent.ac.in" style="width:220px"/>
+        <input id="top_pw" type="password" class="form-control form-control-sm" placeholder="Password" style="width:170px"/>
+        <button id="btnTopLogin" class="btn btn-sm btn-primary">Login</button>
+        <button id="btnOpenRegister" class="btn btn-sm btn-outline-primary">Register</button>
+
+        <div id="loggedBlock" class="d-flex align-items-center gap-2 hidden">
+          <div class="muted-small">Welcome, <strong id="userName"></strong></div>
+          <button id="btnLogout" class="btn btn-sm btn-outline-secondary">Logout</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabs: only Home enabled before login -->
+    <ul class="nav nav-tabs mb-3 nav-locked" id="mainTabs" role="tablist">
+      <li class="nav-item"><button class="nav-link active" id="tabBtnHome" data-bs-toggle="tab" data-bs-target="#tab-home">Home</button></li>
+      <li class="nav-item"><button class="nav-link disabled" id="tabBtnCalendar" data-bs-toggle="tab" data-bs-target="#tab-calendar" aria-disabled="true">Calendar</button></li>
+      <li class="nav-item"><button class="nav-link disabled" id="tabBtnRoutes" data-bs-toggle="tab" data-bs-target="#tab-routes" aria-disabled="true">Route Details</button></li>
+      <li class="nav-item"><button class="nav-link disabled" id="tabBtnLinks" data-bs-toggle="tab" data-bs-target="#tab-links" aria-disabled="true">Link Details</button></li>
+    </ul>
+
+    <div class="tab-content">
+      <!-- HOME (login/register) -->
+      <div class="tab-pane fade show active section-card" id="tab-home">
+        <div class="row g-4">
+          <div class="col-md-6">
+            <h4>Login</h4>
+            <p class="muted-small">Use your VIT student email to login.</p>
+            <div class="mb-2"><input id="login_email" class="form-control" placeholder="email@vitstudent.ac.in"></div>
+            <div class="mb-2"><input id="login_pw" type="password" class="form-control" placeholder="Password"></div>
+            <div class="d-flex gap-2">
+              <button id="doLogin" class="btn btn-primary">Login</button>
+              <button id="clearLogin" class="btn btn-outline-secondary">Clear</button>
+            </div>
+            <div class="mt-2 text-danger small" id="loginMsg"></div>
+          </div>
+
+          <div class="col-md-6">
+            <h4>Register</h4>
+            <p class="muted-small">Register with your VIT student email and select gender.</p>
+            <div class="mb-2"><input id="reg_name" class="form-control" placeholder="Full name"></div>
+            <div class="mb-2"><input id="reg_email" class="form-control" placeholder="email@vitstudent.ac.in"></div>
+            <div class="mb-2"><input id="reg_pw" type="password" class="form-control" placeholder="Password"></div>
+            <div class="mb-2 d-flex gap-2">
+              <select id="reg_gender" class="form-select" style="width:120px"><option value="M">Male</option><option value="F">Female</option></select>
+              <button id="doRegister" class="btn btn-outline-primary">Register</button>
+            </div>
+            <div class="mt-2 text-danger small" id="regMsg"></div>
+            <div class="mt-3 muted-small">After register, log in from the left form to access calendar and tools.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CALENDAR (revealed after login) -->
+      <div class="tab-pane fade section-card hidden" id="tab-calendar">
+        <div class="row">
+          <div class="col-md-4">
+            <h5>Calendar</h5>
+            <div class="muted-small mb-2">Hover dates to see summary. Past dates cannot be scheduled.</div>
+            <div id="miniCalendar" class="mini-cal mb-3"></div>
+
+            <div class="mb-2">
+              <label class="form-label small">Selected Date</label>
+              <input id="selectedDate" type="date" class="form-control">
+            </div>
+            <div class="d-flex gap-2">
+              <button id="btnAddRoute" class="btn btn-success">➕ Add Route</button>
+              <button id="btnRefreshCal" class="btn btn-outline-secondary">Refresh</button>
+            </div>
+          </div>
+
+          <div class="col-md-8">
+            <h5>Routes on <span id="routesDateLabel"></span></h5>
+            <div id="routesContainer" class="mt-3"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ROUTE DETAILS (disabled until a date is selected) -->
+      <div class="tab-pane fade section-card hidden" id="tab-routes">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h5>Route Details — <span id="routeTabDate"></span></h5>
+          <div class="muted-small">Double-click a row to view candidates (once per route).</div>
+        </div>
+        <div id="routesTable"></div>
+      </div>
+
+      <!-- LINK DETAILS (disabled until a route is chosen from Route Details) -->
+      <div class="tab-pane fade section-card hidden" id="tab-links">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h5>Link Details for <span id="linksRouteLabel"></span></h5>
+          <div>
+            <label class="me-2 small">Gender</label>
+            <select id="linksGender" class="form-select d-inline-block" style="width:120px"><option>All</option><option>Male</option><option>Female</option></select>
+            <button id="btnRefreshLinks" class="btn btn-sm btn-outline-secondary ms-2">Refresh</button>
+          </div>
+        </div>
+        <div id="linksArea">
+          <table class="table table-hover">
+            <thead class="table-light"><tr><th>Name</th><th>Gender</th><th>Drop</th><th>Phone</th><th>Year</th><th>Branch</th></tr></thead>
+            <tbody id="linksTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Route Modal -->
+  <div class="modal fade" id="modalAddRoute" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Add Route — <small id="modalRouteDate"></small></h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <table class="table table-borderless">
+            <tbody>
+              <tr><td style="width:160px"><label>Slot No</label></td><td><input id="modal_slot" class="form-control" readonly></td></tr>
+              <tr><td><label>End Point</label></td><td><input id="modal_endpoint" class="form-control" placeholder="Main Gate"></td></tr>
+              <tr><td><label>Major Stops</label></td><td><input id="modal_stops" class="form-control" placeholder="Comma separated"></td></tr>
+              <tr><td><label>Time (HH:MM)</label></td><td><input id="modal_time" class="form-control" placeholder="09:30"></td></tr>
+              <tr><td><label>Transport</label></td><td><select id="modal_transport" class="form-select" style="width:160px"><option value="">(select)</option><option value="bus">Bus</option><option value="car">Car</option></select></td></tr>
+            </tbody>
+          </table>
+          <div id="modalAddRouteMsg" class="text-danger small"></div>
+        </div>
+        <div class="modal-footer">
+          <button id="modalAddRouteCancel" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button id="modalAddRouteSubmit" class="btn btn-success">Create Route</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Candidates Modal (shown when double-clicking a route row in Route Details) -->
+  <div class="modal fade" id="modalCandidates" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-md modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Candidates for <span id="candRouteLabel"></span></h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div id="candidatesList" class="list-group"></div>
+          <div id="candidatesMsg" class="text-muted small mt-2"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Offcanvas for Link join (only in link flow) -->
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasLinks" aria-labelledby="offcanvasLinksLabel">
+    <div class="offcanvas-header">
+      <h5 id="offcanvasLinksLabel">Join Route — <small id="offcanvasLinksDate"></small></h5>
+      <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body">
+      <div id="offLinksContent"></div>
+      <hr/>
+      <h6>Join this route</h6>
+      <div class="mb-2">
+        <label class="form-label small">Name</label>
+        <input id="off_join_name" class="form-control" readonly>
+      </div>
+      <div class="row g-2">
+        <div class="col-md-4"><label class="form-label small">Phone</label><input id="off_join_phone" class="form-control" placeholder="Phone"></div>
+        <div class="col-md-4"><label class="form-label small">Year</label><input id="off_join_year" class="form-control" placeholder="Year"></div>
+        <div class="col-md-4"><label class="form-label small">Branch</label><input id="off_join_branch" class="form-control" placeholder="Branch"></div>
+      </div>
+      <div class="mt-2">
+        <label class="form-label small">Drop point</label>
+        <input id="off_join_drop" class="form-control" readonly>
+      </div>
+      <div class="mt-3">
+        <button id="off_btnDoJoin" class="btn btn-primary">Join</button> <span id="off_joinMsg" class="text-danger ms-2"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- load bootstrap first -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+  // ---------------- Utilities & state ----------------
+  const el = id => document.getElementById(id);
+
+  // construct ISO date using local components to avoid timezone shift
+  function localIso(y, m, d){
+    return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  }
+  function todayLocalIso(){
+    const now = new Date();
+    return localIso(now.getFullYear(), now.getMonth()+1, now.getDate());
+  }
+
+  let loggedUser = null;
+  let currentSelectedDate = todayLocalIso();
+  let currentRouteForLinks = null;
+  let lastCandidatesRouteId = null; // used to avoid re-fetching same candidates repeatedly
+
+  // fetch wrapper with cookies
+  function fetchWithCreds(url, opts = {}){
+    opts.credentials = opts.credentials || 'same-origin';
+    return fetch(url, opts);
+  }
+
+  // ---------------- Helpers to enable/disable tabs ----------------
+  function disableAllTabsExceptHome(){
+    document.getElementById('tabBtnCalendar').classList.add('disabled'); document.getElementById('tabBtnCalendar').setAttribute('aria-disabled','true');
+    document.getElementById('tabBtnRoutes').classList.add('disabled'); document.getElementById('tabBtnRoutes').setAttribute('aria-disabled','true');
+    document.getElementById('tabBtnLinks').classList.add('disabled'); document.getElementById('tabBtnLinks').setAttribute('aria-disabled','true');
+    // keep nav group locked for visual effect
+    document.querySelector('#mainTabs').classList.add('nav-locked');
+    // ensure only home tab content visible
+    document.querySelectorAll('.tab-pane').forEach(p => { if (p.id !== 'tab-home') p.classList.add('hidden'); });
+  }
+  function enableCalendarTabOnly(){
+    document.getElementById('tabBtnCalendar').classList.remove('disabled'); document.getElementById('tabBtnCalendar').removeAttribute('aria-disabled');
+    // make sure calendar content is visible
+    document.getElementById('tab-calendar').classList.remove('hidden');
+    document.querySelector('#mainTabs').classList.remove('nav-locked');
+    // keep other tabs disabled
+    document.getElementById('tabBtnRoutes').classList.add('disabled'); document.getElementById('tabBtnRoutes').setAttribute('aria-disabled','true');
+    document.getElementById('tabBtnLinks').classList.add('disabled'); document.getElementById('tabBtnLinks').setAttribute('aria-disabled','true');
+  }
+  function enableRoutesTab(){
+    document.getElementById('tabBtnRoutes').classList.remove('disabled'); document.getElementById('tabBtnRoutes').removeAttribute('aria-disabled');
+    document.getElementById('tab-routes').classList.remove('hidden');
+  }
+  function enableLinksTab(){
+    document.getElementById('tabBtnLinks').classList.remove('disabled'); document.getElementById('tabBtnLinks').removeAttribute('aria-disabled');
+    document.getElementById('tab-links').classList.remove('hidden');
+  }
+
+  // ---------------- DOM Ready: wiring ----------------
+  document.addEventListener('DOMContentLoaded', () => {
+    // set initial state
+    disableAllTabsExceptHome();
+
+    // ensure selectedDate shows today
+    if (el('selectedDate')) el('selectedDate').value = currentSelectedDate;
+    if (el('routesDateLabel')) el('routesDateLabel').textContent = currentSelectedDate;
+
+    // Login handler
+    async function doLogin(){
+      el('loginMsg').textContent = '';
+      const email = (el('login_email')?.value || el('top_email')?.value || '').trim();
+      const pw = (el('login_pw')?.value || el('top_pw')?.value || '');
+      if (!email || !pw) { el('loginMsg').textContent = 'Email and password required'; return; }
+      try {
+        const res = await fetchWithCreds('/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email, password: pw }) });
+        const body = await (res.json().catch(()=>({})));
+        if (res.ok){
+          loggedUser = { name: body.name || '', email };
+          el('userName').textContent = loggedUser.name || loggedUser.email;
+          el('authArea').classList.add('hidden');
+          el('loggedBlock').classList.remove('hidden');
+          // prefill offcanvas join name readonly
+          if (el('off_join_name')) { el('off_join_name').value = loggedUser.name || ''; el('off_join_name').readOnly = true; }
+          // enable calendar only
+          enableCalendarTabOnly();
+          // show calendar tab
+          new bootstrap.Tab(el('tabBtnCalendar')).show();
+          // build calendar and load routes
+          await buildMiniCalendar();
+          loadRoutesForDate(currentSelectedDate);
+        } else {
+          el('loginMsg').textContent = (body && body.error) ? body.error : `Login failed (${res.status})`;
+          console.error('login failed', body);
+        }
+      } catch (e) {
+        console.error('login network error', e);
+        el('loginMsg').textContent = 'Network error — ensure server is running and you opened the app via http://127.0.0.1:5000';
+      }
+    }
+
+    el('doLogin')?.addEventListener('click', doLogin);
+    el('btnTopLogin')?.addEventListener('click', doLogin);
+
+    // Register
+    el('doRegister')?.addEventListener('click', async ()=>{
+      el('regMsg').textContent = '';
+      const name = el('reg_name')?.value.trim() || '', email = el('reg_email')?.value.trim() || '', pw = el('reg_pw')?.value || '', gender = el('reg_gender')?.value || 'M';
+      if (!name || !email || !pw){ el('regMsg').textContent = 'All fields required'; return; }
+      try {
+        const r = await fetchWithCreds('/register', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name, email, password: pw, gender }) });
+        const body = await (r.json().catch(()=>({})));
+        if (r.ok){ el('regMsg').style.color='green'; el('regMsg').textContent = 'Registered — please login'; }
+        else { el('regMsg').style.color='red'; el('regMsg').textContent = body.error || `Register failed (${r.status})`; }
+      } catch (e) { console.error('register error', e); el('regMsg').textContent = 'Network error'; }
+    });
+
+    // Clear login form
+    el('clearLogin')?.addEventListener('click', ()=>{
+      if (el('login_email')) el('login_email').value=''; if (el('login_pw')) el('login_pw').value=''; if (el('top_email')) el('top_email').value=''; if (el('top_pw')) el('top_pw').value='';
+      el('loginMsg').textContent = '';
+    });
+
+    // Logout
+    el('btnLogout')?.addEventListener('click', async ()=>{
+      try { await fetchWithCreds('/logout', { method:'POST' }); } catch(e){ console.warn('logout network', e); }
+      loggedUser = null;
+      el('authArea').classList.remove('hidden');
+      el('loggedBlock').classList.add('hidden');
+      disableAllTabsExceptHome();
+      new bootstrap.Tab(el('tabBtnHome')).show();
+      if (el('off_join_name')) { el('off_join_name').value=''; el('off_join_name').readOnly=false; }
+    });
+
+    // Open register (keeps home visible)
+    el('btnOpenRegister')?.addEventListener('click', ()=> { new bootstrap.Tab(el('tabBtnHome')).show(); window.scrollTo({top:0, behavior:'smooth'}); });
+
+    // Add Route modal open
+    const modalAddRouteEl = document.getElementById('modalAddRoute');
+    const modalAddRoute = new bootstrap.Modal(modalAddRouteEl);
+    el('btnAddRoute')?.addEventListener('click', async ()=>{
+      if (!el('tabBtnCalendar') || el('tabBtnCalendar').classList.contains('disabled')) { alert('Login required'); return; }
+      el('modalRouteDate').textContent = currentSelectedDate;
+      el('modalAddRouteMsg').textContent = '';
+      // fetch next slot
+      try { const r = await fetchWithCreds('/next_slot'); const j = await r.json(); el('modal_slot').value = j.slot || 'SL0000'; } catch(e){ el('modal_slot').value = 'SL0000'; }
+      el('modal_endpoint').value=''; el('modal_stops').value=''; el('modal_time').value=''; el('modal_transport').value='';
+      modalAddRoute.show();
+    });
+
+    el('modalAddRouteSubmit')?.addEventListener('click', async ()=>{
+      const date = currentSelectedDate;
+      const slot = el('modal_slot').value.trim();
+      const endp = el('modal_endpoint').value.trim();
+      const stops = el('modal_stops').value.trim();
+      const time = el('modal_time').value.trim();
+      const transport = el('modal_transport').value.trim();
+      if (!date || !slot || !endp){ el('modalAddRouteMsg').textContent = 'Date, Slot and End Point are required'; return; }
+      if (time && !/^\d{2}:\d{2}$/.test(time)){ el('modalAddRouteMsg').textContent = 'Time must be HH:MM'; return; }
+      try {
+        const r = await fetchWithCreds('/routes', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ date, slot_no:slot, end_point:endp, major_stops:stops, time, transport_type:transport }) });
+        if (r.status === 201) {
+          modalAddRoute.hide();
+          await loadRoutesForDate(date);
+        } else {
+          const txt = await r.text();
+          el('modalAddRouteMsg').textContent = txt || `Error (${r.status})`;
+        }
+      } catch (e) { console.error('add route', e); el('modalAddRouteMsg').textContent = 'Network error'; }
+    });
+
+    // Refresh calendar
+    el('btnRefreshCal')?.addEventListener('click', ()=> buildMiniCalendar());
+
+    // Links tab refresh
+    el('btnRefreshLinks')?.addEventListener('click', ()=> {
+      if (document.getElementById('tabBtnLinks').classList.contains('disabled')) return;
+      loadLinksForCurrentRoute();
+    });
+
+  }); // DOMContentLoaded end
+
+  // ---------------- Calendar rendering (uses localIso to avoid timezone issues) ----------------
+  async function loadHolidays(){ try { const r = await fetchWithCreds('/holidays'); window.__hols = await r.json(); } catch(e){ window.__hols = []; } }
+  function isPast(iso){ return new Date(iso) < new Date(todayLocalIso()); }
+
+  async function buildMiniCalendar(monthOffset=0){
+    const base = new Date();
+    base.setMonth(base.getMonth() + monthOffset);
+    const year = base.getFullYear(), month = base.getMonth(); // month: 0-based
+    const first = new Date(year, month, 1);
+    const days = new Date(year, month+1, 0).getDate();
+    // Monday start
+    const startWeekday = (first.getDay() + 6) % 7;
+    const container = el('miniCalendar'); if (!container) return;
+    container.innerHTML = '';
+    // header
+    const hdr = document.createElement('div'); hdr.className='d-flex justify-content-between align-items-center mb-2';
+    hdr.innerHTML = `<div><strong>${first.toLocaleString(undefined,{month:'long', year:'numeric'})}</strong></div>
+      <div><button id="prevM" class="btn btn-sm btn-outline-secondary me-1">&lt;</button><button id="nextM" class="btn btn-sm btn-outline-secondary">&gt;</button></div>`;
+    container.appendChild(hdr);
+    // weekdays
+    const wd = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    const wdrow = document.createElement('div'); wdrow.className='d-flex gap-1 mb-2';
+    wd.forEach(d=>{ const s=document.createElement('div'); s.style.width='44px'; s.style.textAlign='center'; s.style.color='#7b8a93'; s.textContent=d; wdrow.appendChild(s); });
+    container.appendChild(wdrow);
+    // grid
+    const grid = document.createElement('div'); grid.className='d-flex flex-wrap gap-2';
+    for(let i=0;i<startWeekday;i++){ const blank=document.createElement('div'); blank.style.width='44px'; blank.style.height='44px'; grid.appendChild(blank); }
+    for(let day=1; day<=days; day++){
+      const iso = localIso(year, month+1, day);
+      const dEl = document.createElement('div'); dEl.className='cal-day'; dEl.textContent = day;
+      if (iso === todayLocalIso()) dEl.classList.add('cal-today');
+      dEl.onmouseenter = async () => {
+        let summ = '';
+        try {
+          const r = await fetchWithCreds('/calendar/' + iso);
+          const js = await r.json();
+          if (js && js.length) summ = js.map((s,i)=> `${i+1}) ${s.slot_no} → ${s.end_point || '-'} @ ${s.time || '-'}`).join('\n');
+          else if ((window.__hols||[]).includes(iso)) summ = 'Holiday';
+          else if (isPast(iso)) summ = 'Past — cannot schedule';
+          else summ = 'No routes — click date to view/add';
+        } catch(e){ summ = 'Unable to load'; }
+        dEl.title = summ;
+      };
+      dEl.onclick = () => {
+        if (isPast(iso)){ alert('This date has passed. Scheduling disabled.'); return; }
+        // set currentSelectedDate and show Route Details tab (enable it)
+        currentSelectedDate = iso;
+        if (el('selectedDate')) el('selectedDate').value = iso;
+        if (el('routesDateLabel')) el('routesDateLabel').textContent = iso;
+        enableRoutesTab();
+        // switch to Route Details tab
+        new bootstrap.Tab(el('tabBtnRoutes')).show();
+        // load routes for this date
+        loadRoutesForDate(iso);
+      };
+      // NOTE: per your request, DO NOT open links from calendar view (so no double-click handler here)
+      grid.appendChild(dEl);
+    }
+    container.appendChild(grid);
+    // prev/next
+    el('prevM').onclick = ()=> buildMiniCalendar(monthOffset-1);
+    el('nextM').onclick = ()=> buildMiniCalendar(monthOffset+1);
+  }
+
+  // ---------------- Routes for date & Route Details table ----------------
+  async function loadRoutesForDate(iso){
+    if (el('routesDateLabel')) el('routesDateLabel').textContent = iso;
+    if (el('routeTabDate')) el('routeTabDate').textContent = iso;
+    try {
+      const res = await fetchWithCreds('/calendar/' + iso);
+      const js = await res.json();
+      const container = el('routesContainer'); if (!container) return; container.innerHTML = '';
+      if (!js || js.length === 0) container.innerHTML = '<div class="muted-small">No routes yet. Use "Add Route" to create one.</div>';
+      else {
+        // render simple cards (View -> opens route panel but not links)
+        js.forEach(route=>{
+          const card = document.createElement('div'); card.className='d-flex justify-content-between align-items-center p-3 mb-2 border rounded';
+          const left = document.createElement('div'); left.innerHTML = `<div><span class="slot-pill">${route.slot_no}</span> <strong class="ms-2">${route.end_point || ''}</strong></div><div class="muted-small">${route.major_stops || ''}</div>`;
+          const right = document.createElement('div'); right.innerHTML = `<div>${route.time || '-'}</div><div class="mt-2"><button class="btn btn-sm btn-primary me-2" onclick="openRoutePanel(${route.id})">View</button></div>`;
+          card.appendChild(left); card.appendChild(right);
+          container.appendChild(card);
+        });
+      }
+      buildRouteTable(js);
+      // make Route Details tab available (it is enabled when date clicked, ensure content visible)
+      el('tab-routes').classList.remove('hidden');
+    } catch (e) { console.error('loadRoutesForDate', e); }
+  }
+
+  function buildRouteTable(routes){
+    const wrapper = el('routesTable'); if (!wrapper) return;
+    wrapper.innerHTML = '';
+    const table = document.createElement('table'); table.className = 'table table-hover';
+    const thead = document.createElement('thead'); thead.innerHTML = '<tr><th>Slot</th><th>End Point</th><th>Major Stops</th><th>Time</th></tr>';
+    table.appendChild(thead);
+    const tbody = document.createElement('tbody');
+    (routes || []).forEach(route => {
+      const tr = document.createElement('tr');
+      tr.dataset.routeId = route.id;
+      tr.innerHTML = `<td>${route.slot_no}</td><td>${route.end_point || ''}</td><td>${route.major_stops || ''}</td><td>${route.time || '-'}</td>`;
+      // double-click on row: show candidates modal and enable links tab
+      tr.addEventListener('dblclick', async (ev) => {
+        ev.preventDefault();
+        const rid = route.id;
+        // only show candidates modal from Route Details (not from calendar)
+        await showCandidatesForRouteOnce(rid, route);
+      });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    wrapper.appendChild(table);
+  }
+
+  // show route info panel (View button from cards) — only shows route info, does NOT open links
+  async function openRoutePanel(routeId){
+    try {
+      const r = await fetchWithCreds('/calendar/' + currentSelectedDate);
+      const rows = await r.json();
+      const route = rows.find(x => x.id === routeId);
+      if (!route){ alert('Route not found'); return; }
+      // show a modal with route details (small and neat)
+      const modalContent = `
+        <div class="p-2">
+          <p><strong>Slot:</strong> ${route.slot_no}</p>
+          <p><strong>End Point:</strong> ${route.end_point || '-'}</p>
+          <p><strong>Major Stops:</strong> ${route.major_stops || '-'}</p>
+          <p><strong>Time:</strong> ${route.time || '-'}</p>
+          <p><strong>Transport:</strong> ${route.transport_type || '-'}</p>
+          <div class="mt-2 text-muted small">Double-click the route in Route Details table to view candidates.</div>
+        </div>`;
+      // reuse candidates modal to present route info with an additional Open Links button
+      el('candRouteLabel').textContent = `${route.slot_no} → ${route.end_point || '-'}`;
+      el('candidatesList').innerHTML = modalContent;
+      el('candidatesMsg').textContent = '';
+      const modal = new bootstrap.Modal(document.getElementById('modalCandidates'));
+      modal.show();
+    } catch (e) { console.error('openRoutePanel', e); alert('Unable to fetch route info'); }
+  }
+
+  // Show candidates modal only once per route (if requested again for another route, it will refresh)
+  async function showCandidatesForRouteOnce(routeId, routeObj){
+    // if we already displayed candidates for this route and modal is visible, just focus it
+    if (lastCandidatesRouteId === routeId) {
+      const m = new bootstrap.Modal(document.getElementById('modalCandidates'));
+      m.show();
+      return;
+    }
+    try {
+      el('candRouteLabel').textContent = `${routeObj.slot_no} → ${routeObj.end_point || '-'}`;
+      el('candidatesList').innerHTML = '<div class="text-muted small">Loading candidates...</div>';
+      el('candidatesMsg').textContent = '';
+      const resp = await fetchWithCreds(`/routes/${routeId}/links?date=${encodeURIComponent(currentSelectedDate)}`);
+      if (!resp.ok){ el('candidatesList').innerHTML = '<div class="text-danger small">Unable to load candidates</div>'; }
+      else {
+        const people = await resp.json();
+        if (!people || people.length === 0) {
+          el('candidatesList').innerHTML = '<div class="muted-small">No candidates joined this route yet.</div>';
+        } else {
+          const ul = document.createElement('div'); ul.className = 'list-group';
+          people.forEach(p => {
+            const a = document.createElement('div'); a.className = 'list-group-item';
+            a.innerHTML = `<div><strong>${p.name}</strong> <small class="text-muted">(${p.course_year || ''} - ${p.branch || ''})</small></div><div>${p.drop_point || ''} • ${p.phone || ''}</div>`;
+            ul.appendChild(a);
+          });
+          el('candidatesList').innerHTML = '';
+          el('candidatesList').appendChild(ul);
+        }
+      }
+      // enable Link Details tab now that user inspected a route's candidates
+      enableLinksTab();
+      // set last displayed
+      lastCandidatesRouteId = routeId;
+      // show modal
+      const m = new bootstrap.Modal(document.getElementById('modalCandidates'));
+      m.show();
+    } catch (e) { console.error('showCandidatesForRouteOnce', e); el('candidatesList').innerHTML = '<div class="text-danger small">Network error</div>'; }
+  }
+
+  // ---------------- Link Details (offcanvas + tab) ----------------
+  async function loadLinksForCurrentRoute(){
+    if (!currentRouteForLinks) return;
+    try {
+      const res = await fetchWithCreds(`/routes/${currentRouteForLinks.id}/links?date=${encodeURIComponent(currentSelectedDate)}`);
+      const people = await res.json();
+      const tbody = el('linksTbody'); if (!tbody) return;
+      tbody.innerHTML = '';
+      if (!people || people.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="muted-small">No one has joined this route yet.</td></tr>';
+      } else {
+        for (const p of people){
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${p.name}</td><td>${p.gender||''}</td><td>${p.drop_point||''}</td><td>${p.phone||''}</td><td>${p.course_year||''}</td><td>${p.branch||''}</td>`;
+          tbody.appendChild(tr);
+        }
+      }
+    } catch (e) { console.error('loadLinksForCurrentRoute', e); }
+  }
+
+  // When user clicks the Links tab we should populate it if a route was selected
+  document.addEventListener('click', (ev) => {
+    const target = ev.target;
+    // if user clicks the Links tab
+    if (target && (target.id === 'tabBtnLinks' || target.closest('#tabBtnLinks'))) {
+      if (document.getElementById('tabBtnLinks').classList.contains('disabled')) {
+        ev.preventDefault();
+        ev.stopPropagation();
+      } else {
+        // if a route was inspected previously, load that route's links
+        if (lastCandidatesRouteId) {
+          currentRouteForLinks = { id: lastCandidatesRouteId };
+          if (el('linksRouteLabel')) el('linksRouteLabel').textContent = `SL${lastCandidatesRouteId} — ${currentSelectedDate}`;
+          loadLinksForCurrentRoute();
+        } else {
+          // no route yet — show all links
+          loadAllLinks();
+        }
+      }
+    }
+    // if user clicks Routes tab while it's enabled, refresh table for current date
+    if (target && (target.id === 'tabBtnRoutes' || target.closest('#tabBtnRoutes'))) {
+      if (!document.getElementById('tabBtnRoutes').classList.contains('disabled')) {
+        loadRoutesForDate(currentSelectedDate);
+      } else { ev.preventDefault(); ev.stopPropagation(); }
+    }
+    // Calendar tab click: prevent if disabled
+    if (target && (target.id === 'tabBtnCalendar' || target.closest('#tabBtnCalendar'))) {
+      if (document.getElementById('tabBtnCalendar').classList.contains('disabled')) { ev.preventDefault(); ev.stopPropagation(); }
+    }
+  }, true);
+
+  async function loadAllLinks(){
+    try {
+      const gender = el('linksGender')?.value || 'All';
+      const param = (gender === 'All') ? '' : '?gender=' + gender[0].toUpperCase();
+      const res = await fetchWithCreds('/links' + param);
+      const list = await res.json();
+      const tbody = el('linksTbody'); if (!tbody) return; tbody.innerHTML = '';
+      if (!list || list.length === 0) tbody.innerHTML = '<tr><td colspan="6" class="muted-small">No links</td></tr>';
+      else {
+        for (const p of list){
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${p.name}</td><td>${p.gender||''}</td><td>${p.drop_point||''}</td><td>${p.phone||''}</td><td>${p.course_year||''}</td><td>${p.branch||''}</td>`;
+          tbody.appendChild(tr);
+        }
+      }
+    } catch (e) { console.error('loadAllLinks', e); }
+  }
+
+  // When a user manually selects a route in Link Details (not required, but keep handler)
+  // Offcanvas join (Join remains only in link flow)
+  document.addEventListener('click', async (ev) => {
+    if (ev.target && ev.target.id === 'off_btnDoJoin') {
+      if (!currentRouteForLinks && !lastCandidatesRouteId) { alert('Select a route first from Route Details'); return; }
+      const routeId = (currentRouteForLinks && currentRouteForLinks.id) ? currentRouteForLinks.id : lastCandidatesRouteId;
+      const payload = {
+        date: currentSelectedDate,
+        name: el('off_join_name')?.value || '',
+        gender: 'M',
+        drop: el('off_join_drop')?.value || '',
+        phone: el('off_join_phone')?.value || '',
+        course_year: el('off_join_year')?.value || '',
+        branch: el('off_join_branch')?.value || ''
+      };
+      el('off_joinMsg').textContent = '';
+      try {
+        const r = await fetchWithCreds(`/routes/${routeId}/join`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+        if (r.status === 201) { el('off_joinMsg').style.color='green'; el('off_joinMsg').textContent='Joined'; loadLinksForCurrentRoute(); loadRoutesForDate(currentSelectedDate); }
+        else { const txt = await r.text(); el('off_joinMsg').style.color='red'; el('off_joinMsg').textContent = txt; }
+      } catch (e) { console.error('off join', e); el('off_joinMsg').style.color='red'; el('off_joinMsg').textContent = 'Network error'; }
+    }
+  });
+
+  // ---------------- Startup check (/me) to persist session ----------------
+  (async function init(){
+    try {
+      await loadHolidays();
+      await buildMiniCalendar();
+      // set inputs
+      if (el('selectedDate')) el('selectedDate').value = currentSelectedDate;
+      if (el('routesDateLabel')) el('routesDateLabel').textContent = currentSelectedDate;
+
+      // check session
+      const meRes = await fetchWithCreds('/me');
+      let meJson;
+      try { meJson = await meRes.json(); } catch(e){ meJson = { id: null }; }
+      if (meJson && meJson.id){
+        loggedUser = { name: meJson.name, email: meJson.email || '' };
+        el('userName').textContent = meJson.name || '';
+        el('authArea').classList.add('hidden'); el('loggedBlock').classList.remove('hidden');
+        if (el('off_join_name')) { el('off_join_name').value = meJson.name || ''; el('off_join_name').readOnly = true; }
+        // enable only calendar tab initially
+        enableCalendarTabOnly();
+        new bootstrap.Tab(el('tabBtnCalendar')).show();
+        loadRoutesForDate(currentSelectedDate);
+      } else {
+        // ensure disabled UI
+        disableAllTabsExceptHome();
+      }
+    } catch (e) { console.error('init', e); disableAllTabsExceptHome(); }
+  })();
+
+  </script>
+</body>
+</html>
