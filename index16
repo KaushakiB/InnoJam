@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>RouteLink — Web App</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <!-- auto-refresh the messages tab content every 6s so group sees updates (server must render updated table) -->
+  <meta http-equiv="refresh" content="6">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet"/>
+  <style>
+    :root{
+      --accent:#0b5878;
+      --accent-2:#e85a4f;
+      --muted:#6c7a89;
+      --card:#ffffff;
+      --bg:#f3fbff;
+    }
+    *{box-sizing:border-box}
+    body{background:var(--bg);font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;margin:0;padding:0}
+    .banner { background: linear-gradient(90deg, rgba(11,88,120,0.06), rgba(232,90,79,0.02)); padding: 22px; border-radius: 8px; display:flex; gap:18px; align-items:center; margin-bottom:18px; }
+    .banner img{ width:120px; height:120px; object-fit:cover; border-radius:12px; box-shadow:0 6px 18px rgba(11,88,120,0.06); }
+    .banner h1{ margin:0; font-size:28px; color:var(--accent); font-weight:800; }
+    .banner p.lead{ margin:6px 0 0 0; color:var(--accent-2); font-weight:700; font-size:20px; }
+    .banner p.sub{ margin:8px 0 0 0; color:var(--muted); font-style:italic; }
+    .topbar{padding:14px 18px;background:linear-gradient(90deg,#f6fbfd,#eef9fb);border-radius:12px;margin-bottom:18px;display:flex;align-items:center;gap:12px}
+    .logobox{width:72px;height:72px;border-radius:12px;background:linear-gradient(180deg,#fff,#f0fbff);display:flex;align-items:center;justify-content:center}
+    .brand{color:var(--accent);font-weight:800;font-size:22px}
+    .tagline{color:var(--muted);font-style:italic}
+    .section-card{background:var(--card);border-radius:12px;padding:18px;margin-bottom:16px;box-shadow:0 6px 18px rgba(13,40,50,0.04)}
+    .mini-cal{display:flex;flex-wrap:wrap;gap:6px}
+    .cal-day{width:44px;height:44px;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:1px solid #e6eef1;user-select:none}
+    .cal-day:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(11,88,120,0.06)}
+    .cal-today{background:var(--accent);color:#fff;font-weight:700}
+    .cal-weekend{background:linear-gradient(180deg,#fff8e6,#fff5e0); color:#7b5200; border:1px solid #ffe7b5}
+    .cal-festival{background:linear-gradient(180deg,#fff0f0,#fff8f8); color:#b33; border:1px solid #ffdede}
+    .slot-pill{background:#ecfbf9;color:#0a6b5b;padding:6px 10px;border-radius:999px;font-weight:700}
+    .transport-pill{background:#eef6ff;color:#0b5878;padding:4px 8px;border-radius:8px;font-weight:600;border:1px solid #d6eaf6}
+    .muted-small{color:var(--muted);font-size:0.95rem}
+    .hidden{display:none!important}
+    .nav-locked .nav-link{opacity:0.45;pointer-events:none}
+    .feature-card { border-radius:12px; padding:12px; background: linear-gradient(180deg,#ffffff,#fbfeff); box-shadow:0 4px 12px rgba(11,88,120,0.03) }
+    .btn-delete { background: transparent; border: 1px solid #f8d7da; color: #c82333; }
+    .small-muted { color:#9aa6ad; font-size:0.95rem; }
+    .legend { display:flex; gap:12px; align-items:center; margin-top:8px; flex-wrap:wrap; }
+    .legend .item { display:flex; gap:6px; align-items:center; font-size:0.92rem; color:var(--muted); }
+    .legend .sw { width:18px; height:18px; border-radius:4px; display:inline-block }
+    .sw-weekend { background: linear-gradient(180deg,#fff8e6,#fff5e0); border:1px solid #ffe7b5 }
+    .sw-fest { background: linear-gradient(180deg,#fff0f0,#fff8f8); border:1px solid #ffdede }
+    .sw-today { background: var(--accent); border-radius:4px; }
+
+    /* Messages area */
+    .messages-container { display: flex; gap: 18px; }
+    .messages-left { width: 80px; } /* profile emoji column */
+    .messages-center { flex: 1; display:flex; flex-direction:column; gap:12px; }
+    .messages-table { max-height: 50vh; overflow:auto; border:1px solid #e6eef1; border-radius:8px; padding:8px; background:#fff; }
+    .msg-row { padding:6px 8px; border-radius:8px; margin-bottom:6px; }
+    .msg-sender { font-weight:700; font-size:0.95rem; color:var(--accent); }
+    .msg-text { margin-top:3px; font-size:0.98rem; color:#123; }
+    .msg-time { font-size:0.8rem; color: #7b8a93; margin-left:6px; }
+    .message-form { display:flex; gap:8px; align-items:center; margin-top:8px; }
+    .quick-presets { display:flex; gap:6px; flex-wrap:wrap; }
+
+    /* group chat button bottom-right */
+    .group-chat-fab {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      z-index: 1000;
+      border-radius: 28px;
+      padding: 10px 16px;
+      font-weight: 800;
+      background: #0b5fa0;
+      color: #fff;
+      box-shadow: 0 6px 18px rgba(11,88,120,0.15);
+      border: none;
+    }
+
+    @media (max-width:900px){ .banner{flex-direction:column;align-items:flex-start} .messages-container{flex-direction:column} .messages-left{width:100%} }
+  </style>
+</head>
+<body>
+  <div class="container py-4">
+
+    <!-- Banner -->
+    <div class="banner">
+      <img src="/static/banner.jpg" alt="banner" onerror="this.src='/static/logo.png'"/>
+      <div>
+        <h1><i class="bi bi-people-fill" style="color:var(--accent)"></i> RouteLink</h1>
+        <p class="lead">A student-first travel connection platform for VIT students</p>
+        <p class="sub">Plan, match, and share journeys — smartly, safely, and together.</p>
+      </div>
+    </div>
+
+    <!-- Topbar -->
+    <div class="topbar">
+      <div class="d-flex align-items-center gap-3">
+        <div class="logobox">
+          <img src="/static/logo.png" alt="logo" width="52" height="52" onerror="this.src='https://img.icons8.com/fluency/48/bus.png'"/>
+        </div>
+        <div>
+          <div class="brand">RouteLink Web</div>
+          <div class="tagline">Every Link Counts, Every Route Matters</div>
+        </div>
+      </div>
+
+      <div class="ms-auto d-flex align-items-center gap-2" id="authArea">
+        <input id="top_email" class="form-control form-control-sm" placeholder="email@vitstudent.ac.in" style="width:220px"/>
+        <input id="top_pw" type="password" class="form-control form-control-sm" placeholder="Password" style="width:170px"/>
+        <button id="btnTopLogin" class="btn btn-sm btn-primary">Login</button>
+        <button id="btnOpenRegister" class="btn btn-sm btn-outline-primary">Register</button>
+      </div>
+
+      <!-- Logout always visible -->
+      <div class="ms-3">
+        <button id="btnLogout" class="btn btn-sm btn-outline-danger">Logout</button>
+      </div>
+
+      <div id="loggedBlock" class="d-flex align-items-center gap-2 hidden ms-3">
+        <div class="muted-small">Welcome, <strong id="userName"></strong></div>
+      </div>
+    </div>
+
+    <!-- Nav -->
+    <ul class="nav nav-tabs mb-3 nav-locked" id="mainTabs" role="tablist">
+      <li class="nav-item"><button class="nav-link active" id="tabBtnHome" data-bs-toggle="tab" data-bs-target="#tab-home">Home</button></li>
+      <li class="nav-item"><button class="nav-link disabled" id="tabBtnCalendar" data-bs-toggle="tab" data-bs-target="#tab-calendar">Calendar</button></li>
+      <li class="nav-item"><button class="nav-link disabled" id="tabBtnRoutes" data-bs-toggle="tab" data-bs-target="#tab-routes">Route Details</button></li>
+      <li class="nav-item"><button class="nav-link disabled" id="tabBtnLinks" data-bs-toggle="tab" data-bs-target="#tab-links">Link Details</button></li>
+      <!-- NEW: Messages tab for group chat -->
+      <li class="nav-item"><button class="nav-link disabled" id="tabBtnMessages" data-bs-toggle="tab" data-bs-target="#tab-messages">Messages</button></li>
+    </ul>
+
+    <div class="tab-content">
+      <!-- HOME -->
+      <div class="tab-pane fade show active section-card" id="tab-home">
+        <div class="row">
+          <div class="col-lg-6">
+            <h4><i class="bi bi-box-arrow-in-right"></i> Login</h4>
+            <p class="small-muted">Sign in with your VIT student email to access scheduling features.</p>
+            <div class="mb-2"><input id="login_email" class="form-control" placeholder="email@vitstudent.ac.in"></div>
+            <div class="mb-2"><input id="login_pw" type="password" class="form-control" placeholder="Password"></div>
+            <div class="d-flex gap-2">
+              <button id="doLogin" class="btn btn-primary">Login</button>
+              <button id="clearLogin" class="btn btn-outline-secondary">Clear</button>
+            </div>
+            <div class="mt-2 text-danger small" id="loginMsg"></div>
+          </div>
+
+          <div class="col-lg-6">
+            <h4><i class="bi bi-person-plus-fill"></i> Register</h4>
+            <p class="small-muted">Create an account using your VIT student email.</p>
+            <div class="mb-2"><input id="reg_name" class="form-control" placeholder="Full name"></div>
+            <div class="mb-2"><input id="reg_email" class="form-control" placeholder="email@vitstudent.ac.in"></div>
+            <div class="mb-2"><input id="reg_pw" type="password" class="form-control" placeholder="Password"></div>
+            <div class="mb-2 d-flex gap-2 align-items-center">
+              <select id="reg_gender" class="form-select" style="width:120px"><option value="M">Male</option><option value="F">Female</option></select>
+              <button id="doRegister" class="btn btn-outline-primary">Register</button>
+            </div>
+            <div class="mt-2 text-danger small" id="regMsg"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CALENDAR -->
+      <div class="tab-pane fade section-card hidden" id="tab-calendar">
+        <div class="row">
+          <div class="col-md-4">
+            <h5><i class="bi bi-calendar4-week"></i> Calendar</h5>
+            <p class="small-muted">Hover dates to preview routes. Click a date to view Route Details. Past dates cannot be scheduled.</p>
+
+            <div id="miniCalendar" class="mini-cal mb-3"></div>
+
+            <div class="legend">
+              <div class="item"><span class="sw sw-weekend"></span> <span class="muted-small">Weekend</span></div>
+              <div class="item"><span class="sw sw-fest"></span> <span class="muted-small">Festival / Holiday</span></div>
+              <div class="item"><span class="sw sw-today"></span> <span class="muted-small">Today</span></div>
+            </div>
+
+            <div class="mt-3">
+              <h6 class="mb-2">Holidays</h6>
+              <ul id="holList" class="small-muted"></ul>
+            </div>
+          </div>
+
+          <div class="col-md-8">
+            <div class="d-flex justify-content-between align-items-center">
+              <h5><i class="bi bi-truck"></i> Routes on <span id="routesDateLabel"></span></h5>
+              <div class="small-muted">Select a route in Route Details to view candidates.</div>
+            </div>
+            <div id="routesContainer" class="mt-3"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ROUTE DETAILS -->
+      <div class="tab-pane fade section-card hidden" id="tab-routes">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h5><i class="bi bi-signpost-2-fill"></i> Route Details — <span id="routeTabDate"></span></h5>
+          <div>
+            <button id="btnAddRoute" class="btn btn-success me-2">➕ Add Route</button>
+            <button id="btnRefreshRoutes" class="btn btn-outline-secondary">Refresh</button>
+          </div>
+        </div>
+        <div id="routesTable"></div>
+      </div>
+
+      <!-- LINK DETAILS -->
+      <div class="tab-pane fade section-card hidden" id="tab-links">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h5><i class="bi bi-people-fill"></i> Link Details for <span id="linksRouteLabel"></span></h5>
+          <div class="d-flex align-items-center gap-2">
+            <label class="me-2 small">Gender</label>
+            <select id="linksGender" class="form-select form-select-sm" style="width:120px"><option>All</option><option>Male</option><option>Female</option></select>
+            <button id="btnFilterLinks" class="btn btn-sm btn-outline-secondary">Filter</button>
+            <button id="btnOpenJoin" class="btn btn-sm btn-primary">Join this route</button>
+            <button id="btnRefreshLinks" class="btn btn-sm btn-outline-secondary">Refresh</button>
+          </div>
+        </div>
+
+        <div id="linksArea">
+          <table class="table table-hover">
+            <thead class="table-light"><tr><th>Name</th><th>Gender</th><th>Drop</th><th>Phone</th><th>Year</th><th>Branch</th><th>Action</th></tr></thead>
+            <tbody id="linksTbody"></tbody>
+          </table>
+        </div>
+
+        <!-- Group chat button (visible when route selected) -->
+        <div class="d-flex justify-content-end mt-2">
+          <!-- styled bold and blue, bottom-right floating is also added below as FAB -->
+          <button id="btnGroupChatInline" class="btn btn-link fw-bold" style="color:#0b5fa0; font-size:1rem; text-decoration:none;">Group Chat for this route</button>
+        </div>
+      </div>
+
+      <!-- MESSAGES TAB (new) -->
+      <div class="tab-pane fade section-card hidden" id="tab-messages">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h5><i class="bi bi-chat-dots-fill"></i> Messages — <small id="messagesForLabel">Group</small></h5>
+          <div class="small-muted">Server-rendered chat table below. Use quick buttons or the compose box to post.</div>
+        </div>
+
+        <div class="messages-container">
+          <!-- left column: profile emoji / small user list (server can render occupants) -->
+          <div class="messages-left">
+            <div class="section-card text-center">
+              <!-- profile emoji - server may render logged-in user's emoji dynamically -->
+              <div style="font-size:40px;line-height:1">🙂</div>
+              <div class="small-muted mt-1">You</div>
+            </div>
+          </div>
+
+          <!-- center column: messages table and compose -->
+          <div class="messages-center">
+            <!-- messages-table: server should render rows inside this container. Example structure below. -->
+            <!-- IMPORTANT: This element should be server-populated with rows like:
+                 <div class="msg-row">
+                   <div class="msg-sender">Alice <span class="msg-time">09:10</span></div>
+                   <div class="msg-text">I'll be at the gate in 5</div>
+                 </div>
+            -->
+            <div class="messages-table" id="messagesTable" aria-live="polite">
+              <!-- placeholder / server-rendered messages go here -->
+              <!-- Example server-rendered content: -->
+              <!--
+              <div class="msg-row">
+                <div class="msg-sender">Alice <span class="msg-time">09:10</span></div>
+                <div class="msg-text">On my way — boarding now.</div>
+              </div>
+              <div class="msg-row" style="background:#f0f8ff">
+                <div class="msg-sender">You <span class="msg-time">09:12</span></div>
+                <div class="msg-text">Ok, see you at the stop.</div>
+              </div>
+              -->
+            </div>
+
+            <!-- quick preset replies implemented as server POST forms (no JS required) -->
+            <div class="quick-presets mt-2">
+              <form method="post" action="/group_message" style="display:inline;">
+                <input type="hidden" name="text" value="On my way">
+                <input type="hidden" name="route_date" id="preset_date_1" value="">
+                <button type="submit" class="btn btn-sm btn-outline-secondary">On my way</button>
+              </form>
+
+              <form method="post" action="/group_message" style="display:inline;">
+                <input type="hidden" name="text" value="Reached gate">
+                <input type="hidden" name="route_date" id="preset_date_2" value="">
+                <button type="submit" class="btn btn-sm btn-outline-secondary">Reached gate</button>
+              </form>
+
+              <form method="post" action="/group_message" style="display:inline;">
+                <input type="hidden" name="text" value="Running late">
+                <input type="hidden" name="route_date" id="preset_date_3" value="">
+                <button type="submit" class="btn btn-sm btn-outline-secondary">Running late</button>
+              </form>
+            </div>
+
+            <!-- Compose form: server should accept POST /group_message and then redirect back to /messages -->
+            <form method="post" action="/group_message" class="message-form" autocomplete="off">
+              <input type="hidden" name="route_date" id="msg_date" value="">
+              <textarea name="text" id="msg_text" rows="2" class="form-control" placeholder="Write message (visible to group)"></textarea>
+              <button type="submit" class="btn btn-primary">Send</button>
+            </form>
+            <div class="small-muted">Tip: the group table above is server-rendered and auto-refreshes every few seconds (meta refresh). The server must append incoming messages to the group's messages table so everyone sees them when they reload.</div>
+          </div>
+        </div>
+      </div> <!-- messages tab end -->
+
+    </div> <!-- tab-content end -->
+
+    <!-- Add Route Modal -->
+    <div class="modal fade" id="modalAddRoute" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Add Route — <small id="modalRouteDate"></small></h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <table class="table table-borderless">
+              <tbody>
+                <tr><td style="width:160px"><label>Slot No</label></td><td><input id="modal_slot" class="form-control" readonly></td></tr>
+                <tr><td><label>End Point</label></td><td><input id="modal_endpoint" class="form-control" placeholder="Main Gate"></td></tr>
+                <tr><td><label>Major Stops</label></td><td><input id="modal_stops" class="form-control" placeholder="Comma separated"></td></tr>
+                <tr><td><label>Time (HH:MM)</label></td><td><input id="modal_time" class="form-control" placeholder="09:30"></td></tr>
+                <tr><td><label>Transport</label></td><td><select id="modal_transport" class="form-select" style="width:160px"><option value="">(select)</option><option value="bus">Bus</option><option value="car">Car</option></select></td></tr>
+              </tbody>
+            </table>
+            <div id="modalAddRouteMsg" class="text-danger small"></div>
+          </div>
+          <div class="modal-footer">
+            <button id="modalAddRouteCancel" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button id="modalAddRouteSubmit" class="btn btn-success">Create Route</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Candidates Modal -->
+    <div class="modal fade" id="modalCandidates" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-md modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Candidates for <span id="candRouteLabel"></span></h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div id="candidatesList" class="list-group"></div>
+            <div id="candidatesMsg" class="text-muted small mt-2"></div>
+          </div>
+          <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Join Offcanvas -->
+    <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasJoin" aria-labelledby="offcanvasJoinLabel">
+      <div class="offcanvas-header">
+        <h5 id="offcanvasJoinLabel">Join Route — <small id="offcanvasJoinDate"></small></h5>
+        <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas"></button>
+      </div>
+      <div class="offcanvas-body">
+        <div id="offJoinRouteInfo" class="mb-2"></div>
+        <div class="mb-2"><label class="form-label small">Name</label><input id="join_name" class="form-control" readonly></div>
+        <div class="mb-2"><label class="form-label small">Gender</label><select id="join_gender" class="form-select"><option value="M">M</option><option value="F">F</option></select></div>
+        <div class="mb-2"><label class="form-label small">Phone</label><input id="join_phone" class="form-control" placeholder="Phone"></div>
+        <div class="mb-2"><label class="form-label small">Year</label><input id="join_year" class="form-control" placeholder="Year"></div>
+        <div class="mb-2"><label class="form-label small">Branch</label><input id="join_branch" class="form-control" placeholder="Branch"></div>
+        <div class="mb-2"><label class="form-label small">Drop point</label><input id="join_drop" class="form-control" readonly></div>
+        <div class="mt-2"><button id="btnDoJoinOff" class="btn btn-primary">Join</button> <span id="joinOffMsg" class="text-danger ms-2"></span></div>
+      </div>
+    </div>
+
+    <!-- floating Group Chat FAB (bottom-right, bold blue) -->
+    <button id="fabGroupChat" class="group-chat-fab">Group Chat</button>
+
+  </div> <!-- container -->
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    // minimal JS to wire a few values so forms post the current route/date context.
+    // This assumes the rest of your app sets `currentSelectedDate` in the page JS (as in your original code).
+    // If not present, these inputs will remain empty and server must infer the group from session/route selection.
+    (function(){
+      // if currentSelectedDate exists in the page (your previous script sets it), use it.
+      try {
+        // preserve existing currentSelectedDate if set earlier
+        const dateVal = (typeof currentSelectedDate !== 'undefined') ? currentSelectedDate : '';
+        const dateInputs = [document.getElementById('msg_date'), document.getElementById('preset_date_1'), document.getElementById('preset_date_2'), document.getElementById('preset_date_3')];
+        dateInputs.forEach(inp => { if (inp) inp.value = dateVal; });
+
+        // Wire group-chat buttons to open Messages tab: clicking either will switch to Messages tab.
+        const tabBtnMessages = document.getElementById('tabBtnMessages');
+        const btnGroupInline = document.getElementById('btnGroupChatInline');
+        const fab = document.getElementById('fabGroupChat');
+
+        function openMessagesTab(){
+          // enable messages tab (server must ensure user authorized)
+          tabBtnMessages.classList.remove('disabled');
+          // programmatically show the tab using Bootstrap's Tab API
+          const tab = new bootstrap.Tab(tabBtnMessages);
+          tab.show();
+          // mark the Messages header label to reflect group/context
+          const lbl = document.getElementById('messagesForLabel');
+          if (lbl) lbl.textContent = `Route ${dateVal || ''}`;
+        }
+
+        if (btnGroupInline) btnGroupInline.addEventListener('click', openMessagesTab);
+        if (fab) fab.addEventListener('click', openMessagesTab);
+
+        // also expose a helper to server-invoked code: when a route is selected, enable Messages tab
+        window.enableMessagesForDate = function(d){
+          try {
+            if (d && tabBtnMessages) {
+              tabBtnMessages.classList.remove('disabled');
+              document.getElementById('msg_date').value = d;
+              ['preset_date_1','preset_date_2','preset_date_3'].forEach(id => {
+                const el = document.getElementById(id); if (el) el.value = d;
+              });
+              const lbl = document.getElementById('messagesForLabel'); if (lbl) lbl.textContent = `Route ${d}`;
+            }
+          } catch(e){ /* ignore */ }
+        };
+      } catch(e){ console.error('messages wiring', e); }
+    })();
+  </script>
+
+</body>
+</html>
